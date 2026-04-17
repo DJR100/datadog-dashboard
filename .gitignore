@@ -3,6 +3,13 @@
 .env.*
 !.env.example
 
+# Raw Datadog RUM samples — may contain client data
+samples/
+
+# Generated pipeline output — contains client names, regenerate with scripts/pipeline.py
+data.json
+data.js
+
 # macOS
 .DS_Store
 

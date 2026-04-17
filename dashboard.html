@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Alaro · Time on Matter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="./data.js"></script>
+  <style>
+    /* === Alaro brand fonts === */
+    @font-face {
+      font-family: "Grad";
+      src: url("./assets/fonts/grad-regular.woff2") format("woff2"),
+           url("./assets/fonts/grad-regular.woff") format("woff");
+      font-weight: 400; font-style: normal; font-display: swap;
+    }
+    @font-face {
+      font-family: "Grad";
+      src: url("./assets/fonts/grad-italic.woff2") format("woff2"),
+           url("./assets/fonts/grad-italic.woff") format("woff");
+      font-weight: 400; font-style: italic; font-display: swap;
+    }
+    @font-face {
+      font-family: "Grad";
+      src: url("./assets/fonts/grad-bold.woff2") format("woff2"),
+           url("./assets/fonts/grad-bold.woff") format("woff");
+      font-weight: 700; font-style: normal; font-display: swap;
+    }
+    @font-face {
+      font-family: "Aeonik Fono";
+      src: url("./assets/fonts/AeonikFonoVF-Roman.ttf") format("truetype-variations");
+      font-weight: 100 900; font-style: normal; font-display: swap;
+    }
+
+    :root {
+      /* Alaro bone palette */
+      --bg: #EFE8D7;         /* page bone */
+      --panel: #FBF6E9;      /* card / lighter bone */
+      --panel-2: #E6DDC6;    /* hover / slightly darker bone */
+      --border: #D6CCB3;     /* warm beige hairline */
+      --text: #1C1B1F;       /* Alaro charcoal */
+      --muted: #6B6252;      /* warm gray */
+      --accent: #EE7A2D;     /* Alaro orange */
+      --accent-soft: #F9C79E;
+      --ink-on-accent: #1C1B1F;
+
+      --font-display: "Grad", "Iowan Old Style", "Charter", Georgia, serif;
+      --font-body:    "Aeonik Fono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      --font-num:     "Aeonik Fono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg); color: var(--text);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .shell { max-width: 1280px; margin: 0 auto; padding: 32px 28px; }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 20px;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    header .brand { display: flex; align-items: center; gap: 14px; }
+    header .logo {
+      width: 44px; height: 44px;
+      border-radius: 8px;
+      display: block;
+      flex-shrink: 0;
+    }
+    header .title-block { display: flex; flex-direction: column; }
+    header h1 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 30px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      line-height: 1.1;
+      color: var(--text);
+    }
+    header .sub {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+    header .gen { color: var(--muted); font-size: 11px; text-align: right; }
+    header .gen-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+
+    .window-picker {
+      display: inline-flex;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+      box-shadow: 0 1px 2px rgba(28, 27, 31, 0.04);
+    }
+    .window-picker button {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      padding: 6px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .window-picker button:hover {
+      color: var(--text);
+      background: var(--panel-2);
+    }
+    .window-picker button.active {
+      background: var(--accent);
+      color: var(--ink-on-accent);
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--accent);
+      color: var(--ink-on-accent);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-left: 10px;
+      vertical-align: middle;
+      font-family: var(--font-body);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 18px;
+      box-shadow: 0 1px 2px rgba(28, 27, 31, 0.04);
+    }
+    .stat .label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+    .stat .value {
+      font-family: var(--font-display);
+      font-size: 30px;
+      font-weight: 400;
+      margin-top: 4px;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat .sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 22px;
+      box-shadow: 0 1px 2px rgba(28, 27, 31, 0.04);
+    }
+    .card h2 {
+      margin: 0 0 14px 0;
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--text);
+      letter-spacing: -0.005em;
+    }
+    .card h2 .hint {
+      font-weight: 400;
+      color: var(--muted);
+      font-size: 12px;
+      margin-left: 8px;
+    }
+    .chart-wrap { position: relative; width: 100%; }
+    .chart-wrap.tall { height: 380px; }
+    .chart-wrap.med  { height: 280px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead th {
+      text-align: left;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+    }
+    tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--panel-2); }
+    td.name { font-weight: 500; }
+    td.id { color: var(--muted); font-family: var(--font-num); font-size: 12px; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .bar {
+      position: relative;
+      height: 6px;
+      background: var(--panel-2);
+      border-radius: 3px;
+      overflow: hidden;
+      min-width: 80px;
+    }
+    .bar > div {
+      position: absolute; top: 0; left: 0; bottom: 0;
+      background: var(--accent);
+      border-radius: 3px;
+    }
+    footer {
+      margin-top: 24px;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* Empty state (e.g. Tanya before her start date) */
+    .empty-state {
+      display: none;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 64px 32px;
+      text-align: center;
+      box-shadow: 0 1px 2px rgba(28, 27, 31, 0.04);
+    }
+    .empty-state.show { display: block; }
+    .empty-state .avatar {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--ink-on-accent);
+      font-family: var(--font-display);
+      font-size: 34px;
+      font-weight: 400;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      letter-spacing: -0.02em;
+    }
+    .empty-state h3 {
+      font-family: var(--font-display);
+      font-size: 26px;
+      font-weight: 400;
+      margin: 0 0 8px 0;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .empty-state p {
+      margin: 0 auto;
+      max-width: 420px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .empty-state .start-badge {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text);
+      background: var(--bg);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+
+    /* When no-data: hide content, show empty state */
+    body.no-data #stats,
+    body.no-data .grid,
+    body.no-data #mattersCard { display: none; }
+    body.no-data #emptyState { display: block; }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="brand">
+      <img src="./assets/logo/alaro-black.png" alt="Alaro" class="logo">
+      <div class="title-block">
+        <h1>
+          Time on matter
+          <span class="badge" id="user-badge">—</span>
+        </h1>
+        <div class="sub" id="window-sub">Loading…</div>
+      </div>
+    </div>
+    <div class="gen-right">
+      <div class="window-picker" id="userPicker" role="tablist" aria-label="User"></div>
+      <div class="window-picker" id="windowPicker" role="tablist" aria-label="Time window"></div>
+      <div class="gen" id="generated-sub"></div>
+    </div>
+  </header>
+
+  <section class="empty-state" id="emptyState" aria-live="polite">
+    <div class="avatar" id="emptyAvatar">—</div>
+    <h3 id="emptyTitle">No data yet</h3>
+    <p id="emptyMessage">This user has no Alaro activity in the selected window.</p>
+    <div id="emptyStartBadge" class="start-badge" hidden></div>
+  </section>
+
+  <section class="stats" id="stats"></section>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Hours per matter <span class="hint">foreground time · folder-attributed only</span></h2>
+      <div class="chart-wrap tall"><canvas id="matterChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Daily breakdown <span class="hint">stacked by matter</span></h2>
+      <div class="chart-wrap tall"><canvas id="dailyChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" id="mattersCard">
+    <h2>Matters <span class="hint">sorted by hours</span></h2>
+    <table id="mattersTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Matter</th>
+          <th>Folder ID</th>
+          <th class="num">Hours</th>
+          <th>Share</th>
+          <th class="num">Blocks</th>
+          <th class="num">Sessions</th>
+          <th>Last active</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <footer id="footer"></footer>
+</div>
+
+<script>
+// Color palette — Alaro orange as the hero, warm supporting tones.
+const PALETTE = [
+  "#EE7A2D", // Alaro orange
+  "#2F5D55", // deep forest
+  "#B4502E", // terracotta
+  "#4A6B8A", // slate blue
+  "#8A6D3B", // ochre
+  "#6B3E5E", // plum
+  "#2C7C6A", // teal green
+  "#C3622D", // burnt orange
+  "#5E4A3A", // walnut
+  "#7A8B5C", // moss
+  "#A16C5B", // clay
+  "#3E5A7A", // indigo
+  "#8F4E28", // rust
+  "#566B3E", // olive
+  "#B89968", // camel
+  "#4D4A5C", // aubergine
+  "#7C4F3A", // bronze
+  "#38637A", // deep cyan
+  "#7E5C9A", // violet
+  "#6A7A4B", // sage
+];
+
+const CHART_TICK   = "#6B6252";   // matches --muted
+const CHART_TEXT   = "#1C1B1F";   // matches --text
+const CHART_GRID   = "#D6CCB3";   // matches --border
+const OTHER_GREY   = "#A39680";   // warm "Other" grey
+const TRIAGE_COLOR = "#4A6B8A";   // slate-blue — triage is client-management work
+const OVERHEAD_GREY = "#8A8270";  // warmer overhead grey
+
+const fmt = {
+  hours: h => `${h.toFixed(1)}h`,
+  pct:   n => `${(n * 100).toFixed(0)}%`,
+  date:  s => new Date(s).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
+  dateShort: s => new Date(s).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+  datetime: s => new Date(s).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+};
+
+const WINDOW_LABELS = { "1": "1d", "3": "3d", "7": "1w", "14": "2w", "30": "1m" };
+const WINDOW_PHRASES = { "1": "last 24 hours", "3": "last 3 days", "7": "last 7 days", "14": "last 2 weeks", "30": "last 30 days" };
+const WINDOW_KEY = "alaro-dashboard-window";
+const USER_KEY   = "alaro-dashboard-user";
+
+const fmtStartDate = iso => {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+};
+
+let matterChart = null;
+let dailyChart  = null;
+
+function renderStats(w) {
+  const s = w.summary;
+  const onMatterPct = s.total_focused_hours ? s.total_matter_hours / s.total_focused_hours : 0;
+  const stats = [
+    { label: "Focused hours", value: fmt.hours(s.total_focused_hours), sub: "dedup'd, active foreground" },
+    { label: "On a matter", value: fmt.hours(s.total_matter_hours), sub: `${fmt.pct(onMatterPct)} of focused time` },
+    { label: "Triage", value: fmt.hours(s.total_triage_hours || 0), sub: "client list + inbox + client pages" },
+    { label: "Overhead / nav", value: fmt.hours(s.total_overhead_hours), sub: "home / unattributed" },
+    { label: "Work blocks", value: `${s.num_work_blocks || 0}`, sub: `across ${s.num_matters} matters (≥15 min gap = new block)` },
+    { label: "Attention ratio", value: fmt.pct(s.attention_ratio), sub: "focused / session wall-clock" },
+  ];
+  document.getElementById("stats").innerHTML = stats.map(s => `
+    <div class="stat">
+      <div class="label">${s.label}</div>
+      <div class="value">${s.value}</div>
+      <div class="sub">${s.sub}</div>
+    </div>`).join("");
+}
+
+function renderMatterChart(w) {
+  if (matterChart) matterChart.destroy();
+  const top = w.matters.slice(0, 12);
+  matterChart = new Chart(document.getElementById("matterChart"), {
+    type: "bar",
+    data: {
+      labels: top.map(m => m.name),
+      datasets: [{
+        label: "Hours",
+        data: top.map(m => m.hours),
+        backgroundColor: top.map((_, i) => PALETTE[i % PALETTE.length]),
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 220 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.parsed.x.toFixed(2)} h  (${top[ctx.dataIndex].session_count} sessions)`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: { color: CHART_TICK, font: { family: "Aeonik Fono" } },
+          grid: { color: CHART_GRID },
+          title: { display: true, text: "Foreground hours", color: CHART_TICK, font: { family: "Aeonik Fono" } },
+        },
+        y: {
+          ticks: { color: CHART_TEXT, autoSkip: false, font: { family: "Aeonik Fono" } },
+          grid: { display: false },
+        },
+      },
+    },
+  });
+}
+
+function renderDailyChart(w) {
+  if (dailyChart) dailyChart.destroy();
+  const top = w.matters.slice(0, 12);
+  const matterIds = top.map(m => m.folder_id);
+  const matterNames = new Map(top.map(m => [m.folder_id, m.name]));
+  const labels = w.daily.map(d => fmt.dateShort(d.date));
+  const datasets = matterIds.map((fid, i) => ({
+    label: matterNames.get(fid),
+    data: w.daily.map(d => d.by_matter[fid] || 0),
+    backgroundColor: PALETTE[i % PALETTE.length],
+    borderWidth: 0,
+  }));
+  datasets.push({
+    label: "Other matters",
+    data: w.daily.map(d => {
+      const topSum = matterIds.reduce((s, f) => s + (d.by_matter[f] || 0), 0);
+      const all = Object.values(d.by_matter).reduce((s, v) => s + v, 0);
+      return Math.max(0, all - topSum);
+    }),
+    backgroundColor: OTHER_GREY,
+    borderWidth: 0,
+  });
+  datasets.push({
+    label: "Triage",
+    data: w.daily.map(d => d.triage_hours || 0),
+    backgroundColor: TRIAGE_COLOR,
+    borderWidth: 0,
+  });
+  datasets.push({
+    label: "Overhead / nav",
+    data: w.daily.map(d => d.overhead_hours),
+    backgroundColor: OVERHEAD_GREY,
+    borderWidth: 0,
+  });
+
+  dailyChart = new Chart(document.getElementById("dailyChart"), {
+    type: "bar",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 220 },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: CHART_TICK, boxWidth: 10, font: { size: 11, family: "Aeonik Fono" } },
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} h`,
+          },
+        },
+      },
+      scales: {
+        x: { stacked: true, ticks: { color: CHART_TICK, font: { family: "Aeonik Fono" } }, grid: { display: false } },
+        y: {
+          stacked: true,
+          beginAtZero: true,
+          ticks: { color: CHART_TICK, font: { family: "Aeonik Fono" } },
+          grid: { color: CHART_GRID },
+          title: { display: true, text: "Hours", color: CHART_TICK, font: { family: "Aeonik Fono" } },
+        },
+      },
+    },
+  });
+}
+
+function renderTable(w) {
+  const totalMatter = w.matters.reduce((s, m) => s + m.hours, 0) || 1;
+  const tbody = document.querySelector("#mattersTable tbody");
+  tbody.innerHTML = w.matters.map((m, i) => {
+    const share = m.hours / totalMatter;
+    const pctW = Math.min(100, share * 100);
+    return `
+      <tr>
+        <td class="num">${i + 1}</td>
+        <td class="name">${m.name}</td>
+        <td class="id">${m.folder_id}</td>
+        <td class="num">${m.hours.toFixed(2)}</td>
+        <td>
+          <div class="bar" title="${fmt.pct(share)} of matter time">
+            <div style="width:${pctW}%; background:${PALETTE[i % PALETTE.length]}"></div>
+          </div>
+        </td>
+        <td class="num" title="continuous working periods (≥15 min gap splits)">${m.work_blocks || 0}</td>
+        <td class="num" title="distinct RUM session IDs">${m.session_count}</td>
+        <td>${m.last_active ? fmt.datetime(m.last_active) : "—"}</td>
+      </tr>`;
+  }).join("");
+}
+
+function showEmptyState(user) {
+  document.body.classList.add("no-data");
+  const initial = (user.display || user.email || "?")[0].toUpperCase();
+  document.getElementById("emptyAvatar").textContent = initial;
+  const name = user.display || user.name || user.email;
+  if (user.starts_on) {
+    const startsDate = new Date(user.starts_on + "T00:00:00");
+    const nowDate = new Date(); nowDate.setHours(0, 0, 0, 0);
+    const future = startsDate >= nowDate;
+    document.getElementById("emptyTitle").textContent =
+      future ? `${name} starts ${fmtStartDate(user.starts_on)}` : `${name} — no activity yet`;
+    document.getElementById("emptyMessage").textContent =
+      future
+        ? `No Alaro activity yet. This page will populate automatically once ${name} logs in and starts using Alaro.`
+        : `No Alaro activity recorded for ${name} in any window yet. The dashboard will update as soon as data arrives.`;
+    const badge = document.getElementById("emptyStartBadge");
+    badge.textContent = `Expected start · ${fmtStartDate(user.starts_on)}`;
+    badge.hidden = !future;
+  } else {
+    document.getElementById("emptyTitle").textContent = `${name} — no activity yet`;
+    document.getElementById("emptyMessage").textContent =
+      `No Alaro activity recorded for ${name} in any window. The dashboard will update as soon as data arrives.`;
+    document.getElementById("emptyStartBadge").hidden = true;
+  }
+}
+
+function hideEmptyState() {
+  document.body.classList.remove("no-data");
+}
+
+function renderWindow(user, key) {
+  const w = user.windows[key];
+  if (!w) return;
+
+  const phrase = WINDOW_PHRASES[key] || `last ${w.days} days`;
+  document.getElementById("window-sub").textContent =
+    `${phrase} · ${w.summary.num_matters} matters · ${w.summary.num_sessions} sessions`;
+
+  renderStats(w);
+  renderMatterChart(w);
+  renderDailyChart(w);
+  renderTable(w);
+}
+
+function renderWindowPicker(user, current, onPick) {
+  const picker = document.getElementById("windowPicker");
+  picker.innerHTML = "";
+  user.available_windows.forEach(k => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset.window = k;
+    btn.textContent = WINDOW_LABELS[k] || `${k}d`;
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-selected", String(k === current));
+    if (k === current) btn.classList.add("active");
+    btn.addEventListener("click", () => onPick(k));
+    picker.appendChild(btn);
+  });
+}
+
+function renderUserPicker(data, current, onPick) {
+  const picker = document.getElementById("userPicker");
+  picker.innerHTML = "";
+  data.available_users.forEach(email => {
+    const u = data.users[email];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset.user = email;
+    btn.textContent = u.display || u.name || email;
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-selected", String(email === current));
+    if (email === current) btn.classList.add("active");
+    btn.addEventListener("click", () => onPick(email));
+    picker.appendChild(btn);
+  });
+}
+
+function showUser(data, email, preferredWindow) {
+  const user = data.users[email];
+  if (!user) return;
+
+  // Header badge
+  document.getElementById("user-badge").textContent = user.display || user.name || email;
+
+  if (!user.has_data) {
+    // Empty state — no charts to render, but keep window picker visible for consistency
+    showEmptyState(user);
+    renderWindowPicker(user, preferredWindow || user.default_window, () => {});
+    document.getElementById("window-sub").textContent =
+      user.starts_on ? `no data yet` : `no Alaro activity recorded`;
+    return;
+  }
+
+  hideEmptyState();
+
+  // Pick window
+  let current = preferredWindow || localStorage.getItem(WINDOW_KEY);
+  if (!current || !user.windows[current]) current = user.default_window;
+
+  renderWindowPicker(user, current, (k) => {
+    localStorage.setItem(WINDOW_KEY, k);
+    document.querySelectorAll("#windowPicker button").forEach(b => {
+      const active = b.dataset.window === k;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-selected", String(active));
+    });
+    renderWindow(user, k);
+  });
+
+  renderWindow(user, current);
+}
+
+function main() {
+  const data = window.DASHBOARD_DATA;
+  if (!data) throw new Error("data.js not loaded — run: python scripts/pipeline.py");
+
+  document.getElementById("generated-sub").textContent =
+    `generated ${fmt.datetime(data.generated_at)}`;
+
+  // Pick initial user: localStorage → default → first available
+  let currentUser = localStorage.getItem(USER_KEY);
+  if (!currentUser || !data.users[currentUser]) currentUser = data.default_user;
+  if (!data.users[currentUser]) currentUser = data.available_users[0];
+
+  renderUserPicker(data, currentUser, (email) => {
+    currentUser = email;
+    localStorage.setItem(USER_KEY, email);
+    document.querySelectorAll("#userPicker button").forEach(b => {
+      const active = b.dataset.user === email;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-selected", String(active));
+    });
+    showUser(data, email);
+  });
+
+  showUser(data, currentUser);
+
+  document.getElementById("footer").textContent =
+    "Option A prototype · zero-instrumentation · multi-tab dedup + activity filter + triage split + work-block grouping + doc-term name filter";
+}
+
+try { main(); } catch (err) {
+  document.body.innerHTML = `<div style="padding:40px; color:#b4502e;">${err.message}</div>`;
+}
+</script>
+</body>
+</html>
