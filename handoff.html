@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Alaro Time-on-Matter Dashboard — Engineering Handoff</title>
+<style>
+  @font-face {
+    font-family: "Grad";
+    src: url("./assets/fonts/grad-regular.woff2") format("woff2");
+    font-weight: 400; font-style: normal;
+  }
+  @font-face {
+    font-family: "Grad";
+    src: url("./assets/fonts/grad-bold.woff2") format("woff2");
+    font-weight: 700; font-style: normal;
+  }
+  @font-face {
+    font-family: "Grad";
+    src: url("./assets/fonts/grad-italic.woff2") format("woff2");
+    font-weight: 400; font-style: italic;
+  }
+  @font-face {
+    font-family: "Aeonik Fono";
+    src: url("./assets/fonts/AeonikFonoVF-Roman.ttf") format("truetype-variations");
+    font-weight: 100 900;
+  }
+
+  :root {
+    --bg: #EFE8D7;
+    --paper: #FBF6E9;
+    --ink: #1C1B1F;
+    --muted: #6B6252;
+    --border: #D6CCB3;
+    --accent: #EE7A2D;
+    --soft-accent: rgba(238, 122, 45, 0.12);
+    --red: #B4502E;
+    --amber: #8A6D3B;
+    --green: #2F5D55;
+    --font-display: "Grad", "Iowan Old Style", Georgia, serif;
+    --font-body: "Aeonik Fono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  @page {
+    size: A4;
+    margin: 22mm 18mm 18mm 18mm;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 10.5pt;
+    line-height: 1.55;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  h1 { font-size: 28pt; line-height: 1.05; }
+  h2 { font-size: 18pt; margin-top: 24pt; margin-bottom: 8pt; border-bottom: 1px solid var(--border); padding-bottom: 4pt; page-break-after: avoid; }
+  h3 { font-size: 13pt; margin-top: 14pt; margin-bottom: 4pt; page-break-after: avoid; }
+  h4 { font-size: 11pt; margin-top: 10pt; margin-bottom: 2pt; font-weight: 700; font-family: var(--font-body); text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); page-break-after: avoid; }
+
+  p { margin: 0 0 8pt 0; }
+  strong { font-weight: 700; }
+  em { color: var(--muted); font-style: italic; }
+  code, .mono { font-family: var(--font-body); font-size: 9.5pt; background: var(--paper); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border); }
+  pre {
+    font-family: var(--font-body);
+    font-size: 9pt;
+    background: var(--paper);
+    padding: 10pt 12pt;
+    border-left: 3px solid var(--accent);
+    border-radius: 2px;
+    overflow-x: hidden;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 6pt 0 10pt 0;
+  }
+
+  /* Cover */
+  .cover {
+    padding: 12mm 0 14mm 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 18pt;
+    display: flex;
+    align-items: flex-start;
+    gap: 18pt;
+    page-break-after: avoid;
+  }
+  .cover img.logo { width: 58pt; height: 58pt; border-radius: 8pt; }
+  .cover .title-block { flex: 1; }
+  .cover .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 9pt;
+    color: var(--muted);
+    margin-bottom: 4pt;
+  }
+  .cover h1 { font-size: 30pt; }
+  .cover .sub {
+    color: var(--muted);
+    font-size: 11pt;
+    margin-top: 6pt;
+  }
+  .cover .meta {
+    display: flex;
+    gap: 22pt;
+    margin-top: 14pt;
+    font-size: 10pt;
+    color: var(--muted);
+  }
+  .cover .meta strong { color: var(--ink); font-weight: 500; }
+
+  /* Layout helpers */
+  section { margin-bottom: 14pt; }
+  .panel {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 6pt;
+    padding: 10pt 12pt;
+    margin: 6pt 0 10pt 0;
+  }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12pt; }
+  ul { margin: 0 0 8pt 16pt; padding: 0; }
+  li { margin-bottom: 3pt; }
+
+  /* Stat strip */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8pt;
+    margin: 10pt 0 12pt 0;
+  }
+  .stat {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 6pt;
+    padding: 8pt 10pt;
+  }
+  .stat .label { font-size: 8.5pt; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
+  .stat .value { font-family: var(--font-display); font-size: 20pt; color: var(--ink); }
+  .stat .sub { font-size: 9pt; color: var(--muted); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 4pt 0 8pt 0; }
+  th, td { text-align: left; padding: 5pt 8pt; vertical-align: top; }
+  thead th {
+    font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500;
+  }
+  tbody td { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child td { border-bottom: none; }
+  td.mono, td.num { font-family: var(--font-body); font-variant-numeric: tabular-nums; }
+  td.num { text-align: right; }
+
+  /* Severity tags */
+  .tag {
+    display: inline-block;
+    padding: 1.5pt 7pt;
+    border-radius: 3pt;
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--paper);
+  }
+  .tag.crit { background: var(--red); }
+  .tag.high { background: var(--accent); }
+  .tag.med  { background: var(--amber); }
+  .tag.low  { background: var(--green); }
+  .tag.out  { background: var(--muted); }
+
+  .gap-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 8pt; margin: 10pt 0 4pt 0;
+  }
+  .gap-header h3 { flex: 1; margin: 0; }
+
+  /* Code-path callout */
+  .callout {
+    background: var(--soft-accent);
+    border-left: 3px solid var(--accent);
+    padding: 8pt 12pt;
+    border-radius: 3pt;
+    margin: 8pt 0 10pt 0;
+  }
+  .callout h4 { color: var(--accent); margin-top: 0; }
+
+  .footer-note {
+    margin-top: 20pt;
+    border-top: 1px solid var(--border);
+    padding-top: 8pt;
+    color: var(--muted);
+    font-size: 9pt;
+  }
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<!-- ========= COVER ========= -->
+<div class="cover">
+  <img class="logo" src="./assets/logo/alaro-black.png" alt="Alaro">
+  <div class="title-block">
+    <div class="eyebrow">Engineering Handoff · Internal</div>
+    <h1>Time-on-Matter Dashboard</h1>
+    <div class="sub">What we built, how it works, and the gaps we're asking engineering to close.</div>
+    <div class="meta">
+      <div><strong>Date</strong><br>20 April 2026</div>
+      <div><strong>Prepared by</strong><br>Dillon Roberts</div>
+      <div><strong>Subject</strong><br>Alaro (RUM app <span class="mono">alaro-dashboard</span>)</div>
+      <div><strong>Status</strong><br>Option A prototype, live</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========= EXECUTIVE SUMMARY ========= -->
+<section>
+  <h2>1. Executive summary</h2>
+  <p>
+    We built a standalone web dashboard that uses Datadog RUM event data — already being collected by the Alaro frontend — to answer a single question: <strong>how is each lawyer spending their time, per matter, day by day</strong>. It's the zero-engineering version of the E2C pipeline: we don't instrument anything new in Alaro yet; we infer time-on-matter from URLs, foreground visibility, and click targets already in the RUM stream.
+  </p>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Focused hours (Maarten, 30d)</div><div class="value">77.7h</div><div class="sub">dedup'd, active foreground</div></div>
+    <div class="stat"><div class="label">Attributed to matter</div><div class="value">52.5h</div><div class="sub">68% of focused time</div></div>
+    <div class="stat"><div class="label">Matters touched</div><div class="value">40</div><div class="sub">distinct folder IDs</div></div>
+    <div class="stat"><div class="label">Work blocks</div><div class="value">159</div><div class="sub">≥15 min gap = new block</div></div>
+  </div>
+
+  <p>
+    The prototype is enough to show trends ("Maarten spent 8.9h on Malbec this week; 2.7h on Magnetic Core I"), but <strong>roughly 10–11 hours per week sits in an "unattributed" bucket</strong> that we can't confidently tie to a matter with the current signal. This handoff describes what that bucket contains, why, and the smallest possible set of Alaro-side changes that would fix it.
+  </p>
+</section>
+
+<!-- ========= 2. WHAT WE BUILT ========= -->
+<section>
+  <h2>2. What we built</h2>
+
+  <h3>The pieces</h3>
+  <ul>
+    <li><strong>Data pipeline</strong> (<span class="mono">scripts/pipeline.py</span>) — pulls RUM events via the Datadog API, runs an attribution pipeline, and writes <span class="mono">data.json</span> + <span class="mono">data.js</span>. Currently scoped to Maarten and Tanya; adding users is a config change.</li>
+    <li><strong>Single-file dashboard</strong> (<span class="mono">dashboard.html</span>) — opens via <span class="mono">file://</span>, no server needed. Alaro-branded (bone palette, Grad + Aeonik Fono).</li>
+    <li><strong>User picker</strong> — Maarten / Tanya segmented control; Tanya's page shows a graceful empty state until she has RUM data.</li>
+    <li><strong>Window picker</strong> — 1d / 3d / 1w / 2w / 1m; all precomputed in one pipeline run (one API pull at 30d, in-memory slicing for smaller windows).</li>
+    <li><strong>List view</strong> — stats strip (focused / on-matter / triage / overhead / work blocks / attention ratio), hours-per-matter chart, daily stacked bar chart, full matter table, and an "unattributed time" card listing the chunks we couldn't tie to a matter, each with a Datadog Explorer deep-link.</li>
+    <li><strong>Matter drill-down</strong> (click any matter row → <span class="mono">#/matter/:id</span>) — per-matter detail view with activity-timeline Gantt, documents touched (hours, version count), AI-chat list with inferred first prompts, action-mix categorisation, heatmap (day × hour), co-touched matters, and per-session Explorer links.</li>
+  </ul>
+
+  <h3>Current coverage</h3>
+  <table>
+    <thead>
+      <tr><th>User</th><th>Status</th><th class="num">Events (30d)</th><th class="num">Sessions</th><th class="num">Focused h</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Maarten Schellingerhout</td><td>Live</td><td class="num">17,074</td><td class="num">139</td><td class="num">77.7</td></tr>
+      <tr><td>Tanya</td><td>Empty state, starts logging today</td><td class="num">0</td><td class="num">0</td><td class="num">0.0</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ========= 3. HOW IT WORKS ========= -->
+<section>
+  <h2>3. How it works (the data flow)</h2>
+
+  <h3>Source of truth</h3>
+  <p>
+    Everything comes from <strong>Datadog RUM</strong>, which Alaro's frontend already emits to the EU region (<span class="mono">datadoghq.eu</span>). No DB access, no Alaro-side instrumentation beyond what's already in place.
+  </p>
+  <div class="panel">
+    <strong>RUM application:</strong> <span class="mono">alaro-dashboard</span><br>
+    <strong>Application ID:</strong> <span class="mono">db0d76f0-bf2e-4328-a098-d711035a664c</span><br>
+    <strong>Frontend:</strong> <span class="mono">dashboard.alaro.ai</span><br>
+    <strong>Backend (resource events):</strong> <span class="mono">alaro-core-api-prod-hn46mjypla-lz.a.run.app</span><br>
+    <strong>Session replay sample rate:</strong> 100%<br>
+    <strong>Auth:</strong> <span class="mono">DD_API_KEY</span> + <span class="mono">DD_APP_KEY</span> (env)
+  </div>
+
+  <h3>Events we read</h3>
+  <table>
+    <thead><tr><th>Event type</th><th>What we use it for</th></tr></thead>
+    <tbody>
+      <tr><td>view</td><td>Matter attribution (URL path / query), foreground time per view, doc + chat IDs</td></tr>
+      <tr><td>action</td><td>Click target text → matter-name inference, chat message content, action mix, activity-filter signal</td></tr>
+      <tr><td>session</td><td>Session duration, attention-ratio denominator, replay URL construction</td></tr>
+      <tr><td>resource, long_task, error</td><td>Not used by attribution; available if needed</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Attribution pipeline</h3>
+  <p>The pipeline runs in <span class="mono">attribute_time()</span> in <span class="mono">scripts/pipeline.py</span>:</p>
+  <ol>
+    <li><strong>Build intervals.</strong> For each view event, expand every <span class="mono">in_foreground_periods</span> entry into an absolute <span class="mono">(start, end)</span> tuple with a matter/triage/overhead bucket derived from <span class="mono">url_path</span> or <span class="mono">url_query.ideFolderId</span>.</li>
+    <li><strong>Merge overlaps (multi-tab dedup).</strong> Sort by start, walk the list; each wall-clock second counts for exactly one bucket.</li>
+    <li><strong>Activity filter.</strong> Drop foreground intervals longer than 5 min that have no action event within ±5 min — kills "tab left open" time.</li>
+    <li><strong>Aggregate.</strong> Sum seconds per folder / per day / per bucket.</li>
+    <li><strong>Work-block grouping.</strong> Group the per-matter event timestamps into blocks separated by ≥15 min gaps.</li>
+    <li><strong>Matter-name inference.</strong> TF-IDF-like scoring on action target text, with "sidebar-click → navigation to matter" events weighted 3×, plus penalties for document-section vocabulary ("Agreement", "Schedule", etc.) and file extensions.</li>
+    <li><strong>Per-matter details.</strong> For each matter, compute documents (by <span class="mono">docId</span>), AI chats (by <span class="mono">ideChatId</span>), action category mix, day×hour heatmap, co-touched matters, and session Explorer URLs.</li>
+  </ol>
+
+  <h3>Output</h3>
+  <p>One JSON payload per user, keyed by window (1/3/7/14/30 days). Written to <span class="mono">data.json</span> + mirrored as <span class="mono">data.js</span> so <span class="mono">dashboard.html</span> works over <span class="mono">file://</span> without a local server.</p>
+
+  <h3>What "focused time" means in this dashboard</h3>
+  <p>
+    Focused hours = the sum of <span class="mono">in_foreground_periods</span> across views, after (a) multi-tab dedup and (b) activity filtering. This is more conservative than <span class="mono">view.time_spent</span>, which inflates 3–8× because the SPA keeps views "alive" and backgrounded tabs keep ticking. Attention ratio = focused / session wall-clock ≈ 55–70% for Maarten, consistent with someone multitasking across apps during a real workday.
+  </p>
+</section>
+
+<!-- ========= 4. GAPS ========= -->
+<section>
+  <h2>4. Known gaps</h2>
+  <p>
+    These are the reasons the numbers aren't pinpoint, and what Alaro-side changes would tighten each. Tagged by severity: <span class="tag crit">Critical</span> for ones that visibly distort the headline numbers, <span class="tag high">High</span>, <span class="tag med">Medium</span>, <span class="tag low">Low</span>, <span class="tag out">Outside Alaro</span> for Gmail/DocuSign-class items.
+  </p>
+
+  <div class="gap-header">
+    <h3>4.1 Home-page attribution hole</h3>
+    <span class="tag crit">Critical</span>
+  </div>
+  <p>
+    Alaro's SPA router occasionally sets <span class="mono">url_path = "/"</span> with no <span class="mono">ideFolderId</span> in <span class="mono">url_query</span>. RUM captures whatever the address bar says, so those views land in the "overhead" bucket even though the user is clearly mid-matter. For Maarten this is roughly <strong>9.3h / week</strong> — about 35% of his focused time.
+  </p>
+  <div class="callout">
+    <h4>Proposed fix</h4>
+    <p>In the router (or wherever <span class="mono">currentMatterId</span> / <span class="mono">currentClientId</span> is tracked), add:</p>
+    <pre>datadogRum.setGlobalContextProperty("matter_id",  currentMatterId);
+datadogRum.setGlobalContextProperty("client_id",  currentClientId);</pre>
+    <p>Clear the properties when neither is active. Every RUM event (view, action, resource) will then carry <span class="mono">@context.matter_id</span>; the dashboard stops inferring from URLs entirely. Estimated implementation: single-digit hours.</p>
+  </div>
+
+  <div class="gap-header">
+    <h3>4.2 Foreground time ≠ active work time</h3>
+    <span class="tag high">High</span>
+  </div>
+  <p>
+    <span class="mono">in_foreground_periods</span> tells us the tab is visible, not that the user is engaged. Stare at a visible tab during a Zoom call, and it still counts. Today we partially mitigate by dropping foreground intervals ≥5 min with no action within ±5 min — but Alaro's SPA fires views very frequently, so individual intervals rarely trip that threshold.
+  </p>
+  <div class="callout">
+    <h4>Proposed fix</h4>
+    <p>Emit a lightweight heartbeat on an idle-aware timer (e.g. reset on <span class="mono">keydown</span> / <span class="mono">mousemove</span> / <span class="mono">scroll</span>, pause on 30s of no input):</p>
+    <pre>datadogRum.addAction("heartbeat", { active: true });   // every 30s while active
+datadogRum.addAction("heartbeat", { active: false });  // once, when going idle</pre>
+    <p>The dashboard then only credits time that sits between <span class="mono">active:true</span> heartbeats. Eliminates "tab visible but ignored" time.</p>
+  </div>
+
+  <div class="gap-header">
+    <h3>4.3 Matter names are inferred, not authoritative</h3>
+    <span class="tag med">Medium</span>
+  </div>
+  <p>
+    Our TF-IDF + sidebar-click heuristic gets most names right ("Malbec VDR", "ElevenLabs", "Magnetic Core I", "Marriott Oxford") but slips on sparse matters where the winning label is a UI fragment ("Real Estate", "Personal") or a doc section. The authoritative <span class="mono">folder_id → folder_name</span> map lives in Alaro's database; we're not using it.
+  </p>
+  <div class="callout">
+    <h4>Proposed fix (choose one)</h4>
+    <ol>
+      <li><strong>Periodic CSV export</strong> — an admin script that dumps <span class="mono">(folder_id, folder_name, client_id, client_name, matter_type, created_at, closed_at)</span> on a cron; dashboard reads it as a lookup overlay.</li>
+      <li><strong>Internal admin endpoint</strong> — <span class="mono">GET /api/v1/admin/folders</span> returning the same payload; dashboard pulls it alongside the RUM query.</li>
+    </ol>
+  </div>
+
+  <div class="gap-header">
+    <h3>4.4 No activity classification</h3>
+    <span class="tag med">Medium</span>
+  </div>
+  <p>
+    We can count clicks but not tell the difference between "reading a DD report" and "drafting a section" and "reviewing a client doc" purely from target text. Useful for management-level mix metrics ("Maarten spends 40% of matter time in AI chat"), not critical for minutes.
+  </p>
+  <div class="callout">
+    <h4>Proposed fix</h4>
+    <p>Tag key actions at emit time:</p>
+    <pre>datadogRum.addAction("doc_edit",    { doc_id, activity: "drafting" });
+datadogRum.addAction("chat_submit", { chat_id, activity: "ai_chat" });
+datadogRum.addAction("doc_view",    { doc_id, activity: "reading" });</pre>
+    <p>Only needed on the handful of core interactions.</p>
+  </div>
+
+  <div class="gap-header">
+    <h3>4.5 Missing E2C milestones</h3>
+    <span class="tag high">High</span>
+  </div>
+  <p>
+    For a real E2C metric (first email received → case closed), only <strong>work_in_progress</strong> is visible today — the rest need either a custom action inside Alaro or an integration with an external system.
+  </p>
+  <table>
+    <thead><tr><th>Milestone</th><th>Today</th><th>What we need</th></tr></thead>
+    <tbody>
+      <tr><td>first_email_received</td><td>Invisible</td><td><span class="tag out">Outside Alaro</span> Gmail → Datadog forwarder</td></tr>
+      <tr><td>triage_complete</td><td>Inferrable from <span class="mono">/client/inbox</span> → <span class="mono">/folder/…</span></td><td>Explicit <span class="mono">addAction("triage_complete")</span> on Alaro's triage confirmation</td></tr>
+      <tr><td>engagement_signed</td><td>Invisible</td><td><span class="tag out">Outside Alaro</span> DocuSign webhook → Datadog</td></tr>
+      <tr><td>work_in_progress</td><td>Visible (folder views)</td><td>Already covered</td></tr>
+      <tr><td>draft_delivered</td><td>Partially inferrable (Upload / Promote actions)</td><td><span class="mono">addAction("draft_delivered", { doc_id, client_id })</span></td></tr>
+      <tr><td>client_sign_off</td><td>Invisible</td><td><span class="tag out">Outside Alaro</span> DocuSign / email</td></tr>
+      <tr><td>case_closed</td><td>Invisible</td><td><span class="mono">addAction("case_closed", { folder_id })</span> on the close button</td></tr>
+    </tbody>
+  </table>
+
+  <div class="gap-header">
+    <h3>4.6 Pre-auth resource events miss usr.email</h3>
+    <span class="tag low">Low</span>
+  </div>
+  <p>
+    26% of events — almost entirely <span class="mono">resource</span> events — have no <span class="mono">usr.email</span> because they fire before the user is identified. Views / actions / sessions are ~100% identified, so this doesn't affect the dashboard. If we ever want to attribute API cost / latency to specific users, fix this.
+  </p>
+  <div class="callout">
+    <h4>Proposed fix</h4>
+    <p>Move the <span class="mono">datadogRum.setUser({ id, email, name })</span> call earlier in the auth bootstrap, before the first API call fires.</p>
+  </div>
+
+  <div class="gap-header">
+    <h3>4.7 Session replay URLs expire before event data</h3>
+    <span class="tag low">Low</span>
+  </div>
+  <p>
+    Datadog RUM keeps event data for 30+ days (we query up to 30d successfully) but session replay retention is shorter on most tiers. The dashboard now uses RUM Explorer URLs (not replay URLs) so deep-links keep working after replay has purged.
+  </p>
+</section>
+
+<!-- ========= 5. ENGINEERING PUNCH-LIST ========= -->
+<section>
+  <h2>5. Engineering punch-list</h2>
+  <p>Ordered roughly by "biggest win per hour of engineering". The first three are the ones that actually matter for the dashboard to trust its own numbers; the rest are nice-to-haves or external integrations.</p>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 8%;">#</th>
+        <th>Ask</th>
+        <th style="width: 15%;">Gap it closes</th>
+        <th style="width: 15%;">Severity</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num"><strong>1</strong></td>
+        <td>Set <span class="mono">datadogRum.setGlobalContextProperty("matter_id", …)</span> and <span class="mono">("client_id", …)</span> wherever matter context changes (router / workspace switcher). Clear on home page.</td>
+        <td>4.1 Home-page hole</td>
+        <td><span class="tag crit">Critical</span></td>
+      </tr>
+      <tr>
+        <td class="num"><strong>2</strong></td>
+        <td>Add explicit milestone actions: <span class="mono">addAction("triage_complete")</span>, <span class="mono">("draft_delivered")</span>, <span class="mono">("case_closed")</span>. Fire them from the UI moments that semantically match those milestones.</td>
+        <td>4.5 E2C milestones</td>
+        <td><span class="tag high">High</span></td>
+      </tr>
+      <tr>
+        <td class="num"><strong>3</strong></td>
+        <td>Expose a folder-metadata lookup: <span class="mono">GET /api/v1/admin/folders</span> returning <span class="mono">(folder_id, folder_name, client_id, client_name, matter_type, created_at, closed_at)</span>. Or equivalent CSV drop.</td>
+        <td>4.3 Matter names</td>
+        <td><span class="tag med">Medium</span></td>
+      </tr>
+      <tr>
+        <td class="num"><strong>4</strong></td>
+        <td>Emit an idle-aware heartbeat action (<span class="mono">addAction("heartbeat", { active })</span>) every 30s while the user is active; pause on idle.</td>
+        <td>4.2 Foreground ≠ active</td>
+        <td><span class="tag high">High</span></td>
+      </tr>
+      <tr>
+        <td class="num"><strong>5</strong></td>
+        <td>Tag core interactions with an <span class="mono">activity</span> attribute (drafting / reading / ai_chat / reviewing).</td>
+        <td>4.4 Activity class</td>
+        <td><span class="tag med">Medium</span></td>
+      </tr>
+      <tr>
+        <td class="num"><strong>6</strong></td>
+        <td>Reorder auth bootstrap so <span class="mono">datadogRum.setUser(…)</span> fires before the first API call.</td>
+        <td>4.6 Pre-auth events</td>
+        <td><span class="tag low">Low</span></td>
+      </tr>
+      <tr>
+        <td class="num"><strong>7</strong></td>
+        <td>(Product call, not engineering urgent.) Decide on Gmail + DocuSign event forwarding to Datadog for the outside-Alaro milestones.</td>
+        <td>4.5 External milestones</td>
+        <td><span class="tag out">Outside</span></td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    Items 1, 2, and 4 alone would take expected accuracy from roughly <strong>±25–35%</strong> on per-matter minutes to roughly <strong>±5–10%</strong> and would turn the 4 Alaro-internal E2C milestones into first-class timestamps we can query directly.
+  </p>
+</section>
+
+<!-- ========= 6. CODE + OPERATIONAL NOTES ========= -->
+<section>
+  <h2>6. Code and how to run it</h2>
+  <table>
+    <thead><tr><th>File</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td><span class="mono">scripts/dd.py</span></td><td>Datadog API client: pagination, rate-limit backoff, env auth</td></tr>
+      <tr><td><span class="mono">scripts/pipeline.py</span></td><td>Main pipeline: pull events, attribute time, infer names, compute per-matter details, write JSON</td></tr>
+      <tr><td><span class="mono">dashboard.html</span></td><td>Single-file UI: layout, Chart.js charts, matter detail drill-down, hash routing</td></tr>
+      <tr><td><span class="mono">data.json</span> / <span class="mono">data.js</span></td><td>Pipeline output, read by dashboard. Gitignored (contains client names)</td></tr>
+      <tr><td><span class="mono">findings.md</span></td><td>Original scouting report — full investigation notes and Options A/B/C</td></tr>
+      <tr><td><span class="mono">samples/</span></td><td>Raw Datadog event JSON dumps used for verification. Gitignored</td></tr>
+      <tr><td><span class="mono">assets/fonts/</span>, <span class="mono">assets/logo/</span></td><td>Alaro brand fonts and logo</td></tr>
+    </tbody>
+  </table>
+  <h3>Regenerate</h3>
+  <pre>cd ~/datadog-dashboard
+.venv/bin/python scripts/pipeline.py
+# Then refresh dashboard.html in a browser.</pre>
+  <h3>Add a new user</h3>
+  <p>Pass <span class="mono">--users</span> (comma-separated emails):</p>
+  <pre>.venv/bin/python scripts/pipeline.py --users "maarten.schellingerhout@alaro.ai,tanya@alaro.ai,new.person@alaro.ai"</pre>
+  <p>Display name / role / <span class="mono">starts_on</span> live in <span class="mono">USER_PROFILES</span> at the top of <span class="mono">pipeline.py</span>.</p>
+  <h3>Repository</h3>
+  <p><span class="mono">github.com/DJR100/datadog-dashboard</span></p>
+</section>
+
+<!-- ========= 7. GLOSSARY ========= -->
+<section>
+  <h2>7. Glossary</h2>
+  <table>
+    <tbody>
+      <tr><td style="width: 27%;"><strong>RUM</strong></td><td>Real User Monitoring. Datadog's browser SDK capturing view/action/session/resource events.</td></tr>
+      <tr><td><strong>view event</strong></td><td>Emitted by the RUM SDK when a route changes. Carries URL, query params, <span class="mono">in_foreground_periods</span>.</td></tr>
+      <tr><td><strong>foreground time</strong></td><td>Time the tab is actually visible. Our base signal for "active" time; sum of <span class="mono">in_foreground_periods[].duration</span> across all views.</td></tr>
+      <tr><td><strong>matter</strong></td><td>A folder in Alaro. Keyed by <span class="mono">folder_id</span> UUID. Maps loosely to a client engagement.</td></tr>
+      <tr><td><strong>work block</strong></td><td>A continuous stretch of activity on one matter; splits on gaps ≥ 15 minutes.</td></tr>
+      <tr><td><strong>triage</strong></td><td>Time on <span class="mono">/client</span>, <span class="mono">/client/inbox</span>, or <span class="mono">/client/:id</span> — client-management work not yet tied to a specific matter.</td></tr>
+      <tr><td><strong>overhead</strong></td><td>Focused foreground time we couldn't attribute — typically <span class="mono">/</span> with no folder context. Target of fix 4.1.</td></tr>
+      <tr><td><strong>attention ratio</strong></td><td>Focused hours ÷ total session wall-clock. How much of "session time" was actually in foreground.</td></tr>
+      <tr><td><strong>E2C</strong></td><td>End-to-end: time from first client email to case closed.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<div class="footer-note">
+  Alaro · Time-on-Matter Dashboard · Engineering handoff · 20 April 2026. Repository: github.com/DJR100/datadog-dashboard
+</div>
+
+</body>
+</html>

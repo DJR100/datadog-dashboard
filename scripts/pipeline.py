@@ -287,6 +287,442 @@ def _compute_work_blocks(timestamps: list[float]) -> int:
     return blocks
 
 
+def _group_overhead_chunks(
+    intervals: list[tuple],           # [(start_ts, end_ts, view_event), ...]
+    matter_names: dict[str, str],
+    site: str = "datadoghq.eu",
+) -> list[dict]:
+    """Merge contiguous overhead intervals into chunks with session + referrer hints.
+
+    For each chunk we record the most common referrer-folder ("probably came from X")
+    so Dillon can see likely-misattributed vs. genuine home-page time in one list.
+    """
+    if not intervals:
+        return []
+
+    def ref_folder_of(v):
+        ru = (v["attributes"]["attributes"].get("view") or {}).get("referrer_url") or {}
+        path = ru.get("url_path") or ""
+        m = re.match(r"^/folder/([0-9a-f-]+)(?:/|$)", path)
+        if m:
+            return m.group(1)
+        q = ru.get("url_query") or {}
+        return q.get("ideFolderId")
+
+    def sess_id_of(v):
+        return (v["attributes"]["attributes"].get("session") or {}).get("id")
+
+    ivs = sorted(intervals, key=lambda x: x[0])
+    CHUNK_GAP = 120  # seconds — intervals within this are the same chunk
+
+    chunks = []
+
+    def flush(start, end, active_sec, sessions, refs):
+        sess_list = sorted(sessions)
+        ref_id = None
+        ref_name = None
+        if refs:
+            ref_id = refs.most_common(1)[0][0]
+            ref_name = matter_names.get(ref_id)
+        replay_url = None
+        if sess_list:
+            # Use the Explorer URL (session replay has shorter retention than event data).
+            start_ms = int((start - 30) * 1000)
+            end_ms   = int((end + 30) * 1000)
+            replay_url = _explorer_session_url(
+                sess_list[0],
+                None,  # we don't have the session event ID from a view event
+                start_ms, end_ms, site,
+            )
+        chunks.append({
+            "start": datetime.fromtimestamp(start, tz=timezone.utc).isoformat(),
+            "end":   datetime.fromtimestamp(end,   tz=timezone.utc).isoformat(),
+            "active_min": round(active_sec / 60, 1),
+            "span_min":   round((end - start) / 60, 1),
+            "session_ids": sess_list,
+            "referrer_folder_id":   ref_id,
+            "referrer_folder_name": ref_name,
+            "replay_url": replay_url,
+        })
+
+    cur_start, cur_end, first_v = ivs[0]
+    cur_active = cur_end - cur_start
+    cur_sessions = {sess_id_of(first_v)} if sess_id_of(first_v) else set()
+    cur_refs = Counter()
+    if ref_folder_of(first_v):
+        cur_refs[ref_folder_of(first_v)] += 1
+
+    for s, e, v in ivs[1:]:
+        if s - cur_end > CHUNK_GAP:
+            flush(cur_start, cur_end, cur_active, cur_sessions, cur_refs)
+            cur_start = s
+            cur_end = e
+            cur_active = e - s
+            cur_sessions = set()
+            cur_refs = Counter()
+        else:
+            cur_end = max(cur_end, e)
+            cur_active += (e - s)
+        sid = sess_id_of(v)
+        if sid:
+            cur_sessions.add(sid)
+        ref = ref_folder_of(v)
+        if ref:
+            cur_refs[ref] += 1
+
+    flush(cur_start, cur_end, cur_active, cur_sessions, cur_refs)
+    chunks.sort(key=lambda c: -c["active_min"])
+    return chunks
+
+
+def _group_blocks_with_sessions(intervals: list[tuple]) -> list[dict]:
+    """From a list of (start, end, view_event) intervals for one matter, produce work-block dicts.
+
+    Each block: start_ts, end_ts, duration_sec, active_sec, session_ids.
+    """
+    if not intervals:
+        return []
+    ivs = sorted(intervals, key=lambda x: x[0])
+    blocks = []
+    cur_start = ivs[0][0]
+    cur_end = ivs[0][1]
+    cur_active = ivs[0][1] - ivs[0][0]
+    cur_sessions = set()
+    sess_id = ((ivs[0][2]["attributes"]["attributes"].get("session") or {}).get("id"))
+    if sess_id:
+        cur_sessions.add(sess_id)
+
+    for s, e, v in ivs[1:]:
+        sid = ((v["attributes"]["attributes"].get("session") or {}).get("id"))
+        if s - cur_end >= WORK_BLOCK_GAP_SEC:
+            blocks.append({
+                "start": cur_start, "end": cur_end,
+                "duration_sec": cur_end - cur_start,
+                "active_sec": cur_active,
+                "session_ids": sorted(cur_sessions),
+            })
+            cur_start = s
+            cur_sessions = set()
+            cur_active = 0
+        cur_end = max(cur_end, e)
+        cur_active += (e - s)
+        if sid:
+            cur_sessions.add(sid)
+
+    blocks.append({
+        "start": cur_start, "end": cur_end,
+        "duration_sec": cur_end - cur_start,
+        "active_sec": cur_active,
+        "session_ids": sorted(cur_sessions),
+    })
+    return blocks
+
+
+def _infer_doc_name(doc_id: str, name_counter: Counter) -> str:
+    """Pick the most likely filename for a doc from action-target text seen on it."""
+    if not name_counter:
+        return f"Document {doc_id[:8]}"
+    # Prefer entries that clearly look like a filename
+    for nm, _ in name_counter.most_common(20):
+        if re.search(r"\.(docx|pdf|xlsx|doc|ppt|pptx|csv|txt|md)\b", nm, re.I):
+            # Strip trailing junk after the extension
+            m = re.match(r"^(.*?\.(?:docx|pdf|xlsx|doc|ppt|pptx|csv|txt|md))\b", nm, re.I)
+            return m.group(1) if m else nm
+    return name_counter.most_common(1)[0][0]
+
+
+def _compute_matter_details(
+    matter_id: str,
+    per_matter_intervals: list[tuple],  # [(start, end, view_event), ...]
+    views: list[dict],
+    actions: list[dict],
+    all_matter_daily_sec: dict[str, dict[str, float]],
+    matter_names: dict[str, str],
+    session_event_id_by_uuid: dict[str, str] | None = None,
+    site: str = "datadoghq.eu",
+) -> dict:
+    """Detail payload for a single matter: documents, chats, action mix, heatmap, etc."""
+    # --- Work blocks (detailed)
+    work_blocks = _group_blocks_with_sessions(per_matter_intervals)
+
+    # --- Documents (by docId in url_query)
+    doc_fg_sec: dict[str, float] = defaultdict(float)
+    doc_versions: dict[str, set] = defaultdict(set)
+    doc_view_count: Counter = Counter()
+    doc_last_seen: dict[str, float] = {}
+    for v in views:
+        a = v["attributes"]["attributes"]
+        vi = a.get("view", {}) or {}
+        q = vi.get("url_query") or {}
+        doc_id = q.get("docId")
+        if not doc_id:
+            continue
+        fg_ns = sum(p.get("duration", 0) for p in (vi.get("in_foreground_periods") or []))
+        doc_fg_sec[doc_id] += fg_ns / 1e9
+        if q.get("versionGroupId"):
+            doc_versions[doc_id].add(q["versionGroupId"])
+        doc_view_count[doc_id] += 1
+        ts_epoch = parse_ts(v["attributes"]["timestamp"]).timestamp()
+        if ts_epoch > doc_last_seen.get(doc_id, 0):
+            doc_last_seen[doc_id] = ts_epoch
+
+    # Doc name inference: action target text on events while docId was active
+    doc_name_candidates: dict[str, Counter] = defaultdict(Counter)
+    doc_click_count: Counter = Counter()
+    for e in actions:
+        a = e["attributes"]["attributes"]
+        v = a.get("view") or {}
+        q = v.get("url_query") or {}
+        doc_id = q.get("docId")
+        if not doc_id:
+            continue
+        doc_click_count[doc_id] += 1
+        nm = ((a.get("action") or {}).get("target") or {}).get("name")
+        if nm:
+            doc_name_candidates[doc_id][nm] += 1
+
+    documents = []
+    for doc_id, secs in sorted(doc_fg_sec.items(), key=lambda kv: -kv[1]):
+        documents.append({
+            "doc_id": doc_id,
+            "name": _infer_doc_name(doc_id, doc_name_candidates.get(doc_id, Counter())),
+            "hours": round(secs / 3600, 2),
+            "version_count": len(doc_versions[doc_id]),
+            "view_count": doc_view_count[doc_id],
+            "click_count": doc_click_count[doc_id],
+            "last_seen": datetime.fromtimestamp(doc_last_seen[doc_id], tz=timezone.utc).isoformat()
+                if doc_id in doc_last_seen else None,
+        })
+
+    # --- AI chats (by chatId in url_query)
+    chat_fg_sec: dict[str, float] = defaultdict(float)
+    chat_first_ts: dict[str, float] = {}
+    chat_last_ts: dict[str, float] = {}
+    chat_submit_count: Counter = Counter()
+    chat_first_prompts: dict[str, str] = {}
+    chat_long_texts: dict[str, Counter] = defaultdict(Counter)
+    for v in views:
+        a = v["attributes"]["attributes"]
+        vi = a.get("view", {}) or {}
+        q = vi.get("url_query") or {}
+        chat_id = q.get("ideChatId")
+        if not chat_id:
+            continue
+        fg_ns = sum(p.get("duration", 0) for p in (vi.get("in_foreground_periods") or []))
+        chat_fg_sec[chat_id] += fg_ns / 1e9
+        ts_epoch = parse_ts(v["attributes"]["timestamp"]).timestamp()
+        if chat_id not in chat_first_ts or ts_epoch < chat_first_ts[chat_id]:
+            chat_first_ts[chat_id] = ts_epoch
+        if ts_epoch > chat_last_ts.get(chat_id, 0):
+            chat_last_ts[chat_id] = ts_epoch
+
+    for e in actions:
+        a = e["attributes"]["attributes"]
+        v = a.get("view") or {}
+        q = v.get("url_query") or {}
+        chat_id = q.get("ideChatId")
+        if not chat_id:
+            continue
+        nm = ((a.get("action") or {}).get("target") or {}).get("name") or ""
+        if nm.strip() == "Submit":
+            chat_submit_count[chat_id] += 1
+        # Collect likely message-content text. Heuristics to skip UI-cascade labels:
+        # require (a) natural-language shape (30%+ lowercase-starting words),
+        # (b) not a file-tree cascade ("Explorer", "File Explorer", menu items with "New ").
+        stripped = nm.strip()
+        if not (15 <= len(stripped) <= 200):
+            continue
+        if stripped.startswith("Type @") or stripped.startswith("Explorer "):
+            continue
+        if "File Explorer" in stripped or "Context menu" in stripped:
+            continue
+        words = stripped.split()
+        if len(words) < 4:
+            continue
+        lower_start = sum(1 for w in words if w and w[0].islower())
+        if lower_start / len(words) < 0.3:
+            continue
+        chat_long_texts[chat_id][stripped] += 1
+
+    chats = []
+    for chat_id in sorted(chat_fg_sec.keys(), key=lambda k: -chat_fg_sec[k]):
+        first_prompt = None
+        if chat_long_texts[chat_id]:
+            first_prompt = chat_long_texts[chat_id].most_common(1)[0][0]
+        chats.append({
+            "chat_id": chat_id,
+            "hours": round(chat_fg_sec[chat_id] / 3600, 2),
+            "submit_count": chat_submit_count[chat_id],
+            "first_prompt": first_prompt,
+            "first_seen": datetime.fromtimestamp(chat_first_ts[chat_id], tz=timezone.utc).isoformat()
+                if chat_id in chat_first_ts else None,
+            "last_seen": datetime.fromtimestamp(chat_last_ts[chat_id], tz=timezone.utc).isoformat()
+                if chat_id in chat_last_ts else None,
+        })
+
+    # --- Action breakdown
+    action_target_counter: Counter = Counter()
+    for e in actions:
+        nm = ((e["attributes"]["attributes"].get("action") or {}).get("target") or {}).get("name") or "(unknown)"
+        action_target_counter[nm] += 1
+
+    # Categorize into groups
+    categories = {
+        "Authoring (Upload/Promote/Delete)": 0,
+        "AI chat (New chat/Submit)": 0,
+        "Navigation (panels/workspace)": 0,
+        "Content interaction (doc/text clicks)": 0,
+        "Other UI": 0,
+    }
+    AUTHORING = {"upload", "upload new version", "promote", "delete", "rename", "order"}
+    AI_CHAT = {"new chat", "submit"}
+    NAV = {"chat panel", "document panel", "switch workspace", "clients",
+           "current workspace", "current workspace 1", "current workspace 2", "editor"}
+    for nm, n in action_target_counter.items():
+        nml = nm.strip().lower()
+        if nml in AUTHORING:
+            categories["Authoring (Upload/Promote/Delete)"] += n
+        elif nml in AI_CHAT:
+            categories["AI chat (New chat/Submit)"] += n
+        elif nml in NAV:
+            categories["Navigation (panels/workspace)"] += n
+        elif nm.startswith("Type @") or len(nm) >= 40:
+            categories["Content interaction (doc/text clicks)"] += n
+        else:
+            categories["Other UI"] += n
+
+    top_actions = [
+        {"label": k, "count": v}
+        for k, v in action_target_counter.most_common(15)
+    ]
+
+    # --- Heatmap (7 days × 24 hours) of active time
+    heatmap = [[0.0] * 24 for _ in range(7)]  # [weekday][hour] = seconds
+    # Use the merged/filtered per-matter intervals for the heatmap
+    for start, end, _v in per_matter_intervals:
+        cur = start
+        while cur < end:
+            dt = datetime.fromtimestamp(cur, tz=timezone.utc)
+            weekday = dt.weekday()  # Mon=0 … Sun=6
+            hour = dt.hour
+            # Minutes remaining in this hour
+            next_hour = dt.replace(minute=0, second=0, microsecond=0).timestamp() + 3600
+            chunk_end = min(end, next_hour)
+            heatmap[weekday][hour] += (chunk_end - cur) / 60  # minutes
+            cur = chunk_end
+    heatmap_rounded = [[round(v, 1) for v in row] for row in heatmap]
+
+    # --- Co-touched matters: other matters active on the same day as this one
+    own_days = set()
+    for d, bm in all_matter_daily_sec.items():
+        if matter_id in bm:
+            own_days.add(d)
+    co_touched = defaultdict(float)  # folder_id → shared-day hours
+    for d in own_days:
+        for fid, secs in all_matter_daily_sec.get(d, {}).items():
+            if fid != matter_id:
+                co_touched[fid] += secs
+    co_list = [
+        {"folder_id": fid, "name": matter_names.get(fid, f"Matter {fid[:8]}"),
+         "shared_day_hours": round(secs / 3600, 2)}
+        for fid, secs in sorted(co_touched.items(), key=lambda kv: -kv[1])
+    ][:10]
+
+    # --- Session replay links
+    session_hours: dict[str, float] = defaultdict(float)
+    session_starts: dict[str, float] = {}
+    session_ends: dict[str, float] = {}
+    for blk in work_blocks:
+        for sid in blk["session_ids"]:
+            # Allocate block duration to all its sessions equally (rough)
+            session_hours[sid] += blk["active_sec"] / max(1, len(blk["session_ids"]))
+            if sid not in session_starts or blk["start"] < session_starts[sid]:
+                session_starts[sid] = blk["start"]
+            if blk["end"] > session_ends.get(sid, 0):
+                session_ends[sid] = blk["end"]
+
+    sessions_for_replay = []
+    sid_to_eid = session_event_id_by_uuid or {}
+    for sid, secs in sorted(session_hours.items(), key=lambda kv: -kv[1]):
+        start_ms = int((session_starts[sid] - 60) * 1000)
+        end_ms   = int((session_ends[sid]   + 60) * 1000)
+        sessions_for_replay.append({
+            "session_id": sid,
+            "hours_on_matter": round(secs / 3600, 2),
+            "start": datetime.fromtimestamp(session_starts[sid], tz=timezone.utc).isoformat(),
+            "end":   datetime.fromtimestamp(session_ends[sid],   tz=timezone.utc).isoformat(),
+            "replay_url": _explorer_session_url(sid, sid_to_eid.get(sid), start_ms, end_ms, site),
+        })
+
+    # --- Format work blocks for JSON
+    work_blocks_out = []
+    for b in work_blocks:
+        work_blocks_out.append({
+            "start": datetime.fromtimestamp(b["start"], tz=timezone.utc).isoformat(),
+            "end":   datetime.fromtimestamp(b["end"],   tz=timezone.utc).isoformat(),
+            "duration_min": round(b["duration_sec"] / 60, 1),
+            "active_min":   round(b["active_sec"]   / 60, 1),
+            "session_ids":  b["session_ids"],
+        })
+
+    return {
+        "work_blocks": work_blocks_out,
+        "documents": documents,
+        "chats": chats,
+        "action_categories": [{"label": k, "count": v} for k, v in categories.items() if v > 0],
+        "top_actions": top_actions,
+        "heatmap_minutes": heatmap_rounded,  # [weekday 0..6][hour 0..23]
+        "co_touched": co_list,
+        "sessions_for_replay": sessions_for_replay,
+    }
+
+
+APP_ID = "db0d76f0-bf2e-4328-a098-d711035a664c"
+
+
+def _explorer_session_url(
+    session_id: str,
+    session_event_id: str | None,
+    start_ms: int,
+    end_ms: int,
+    site: str = "datadoghq.eu",
+) -> str:
+    """Build a Datadog RUM Explorer URL that opens the given session.
+
+    Uses `event=<id>` when we have the session event ID (auto-opens the panel);
+    otherwise filters by `@session.id:<uuid>` so the Explorer lands on that row.
+    """
+    from urllib.parse import urlencode
+    if session_event_id:
+        q = f"@type:session @application.id:{APP_ID}"
+        params = {
+            "query": q,
+            "event": session_event_id,
+            "from_ts": start_ms,
+            "to_ts": end_ms,
+            "live": "false",
+        }
+    else:
+        q = f"@type:session @application.id:{APP_ID} @session.id:{session_id}"
+        params = {
+            "query": q,
+            "from_ts": start_ms,
+            "to_ts": end_ms,
+            "live": "false",
+        }
+    return f"https://app.{site}/rum/sessions?{urlencode(params)}"
+
+
+def _explorer_matter_url(
+    folder_id: str, start_ms: int, end_ms: int, site: str = "datadoghq.eu"
+) -> str:
+    """Build a RUM Explorer URL filtered to this matter (folder_id)."""
+    from urllib.parse import urlencode
+    q = f"@application.id:{APP_ID} @view.url:*{folder_id}*"
+    params = {"query": q, "from_ts": start_ms, "to_ts": end_ms, "live": "false"}
+    return f"https://app.{site}/rum/explorer?{urlencode(params)}"
+
+
 def attribute_time(events: list[dict]) -> dict:
     """Compute attributed foreground seconds per matter/triage/overhead.
 
@@ -299,6 +735,13 @@ def attribute_time(events: list[dict]) -> dict:
     view_events    = [e for e in events if e["attributes"]["attributes"].get("type") == "view"]
     action_events  = [e for e in events if e["attributes"]["attributes"].get("type") == "action"]
     session_events = [e for e in events if e["attributes"]["attributes"].get("type") == "session"]
+
+    # Map session UUID → outer event ID so URLs can auto-open the session panel.
+    session_event_id_by_uuid: dict[str, str] = {}
+    for se in session_events:
+        sid = (se["attributes"]["attributes"].get("session") or {}).get("id")
+        if sid and se.get("id"):
+            session_event_id_by_uuid[sid] = se["id"]
 
     action_epochs = sorted(parse_ts(e["attributes"]["timestamp"]).timestamp() for e in action_events)
 
@@ -378,20 +821,62 @@ def attribute_time(events: list[dict]) -> dict:
                 break
 
     # --- Build matter list ---
+    # First pass: collect matter intervals by folder (from activity-filtered list)
+    # so we can compute per-matter details below.
+    per_matter_intervals: dict[str, list[tuple]] = defaultdict(list)
+    overhead_interval_list: list[tuple] = []  # (start, end, view_event)
+    for start, end, btype, bid, v in active:
+        if btype == "matter" and bid:
+            per_matter_intervals[bid].append((start, end, v))
+        elif btype == "overhead":
+            overhead_interval_list.append((start, end, v))
+
+    # Also build {day → {folder_id → seconds}} for co-touched computation
+    all_matter_daily_sec = {
+        day: dict(bm) for day, bm in matter_daily.items()
+    }
+
+    # Compute names first (cheap), then use them in matter_names for co-touched lookups
+    matter_names = {
+        fid: infer_matter_name(fid, folder_texts)
+        for fid in matter_total_sec.keys()
+    }
+
+    # Partition view/action events by matter (once, for re-use in detail computation)
+    matter_views: dict[str, list[dict]] = defaultdict(list)
+    matter_actions: dict[str, list[dict]] = defaultdict(list)
+    for v in view_events:
+        btype, bid = classify_bucket(v["attributes"]["attributes"])
+        if btype == "matter" and bid:
+            matter_views[bid].append(v)
+    for e in action_events:
+        btype, bid = classify_bucket(e["attributes"]["attributes"])
+        if btype == "matter" and bid:
+            matter_actions[bid].append(e)
+
     matters = []
     for folder_id, secs in matter_total_sec.items():
-        name = infer_matter_name(folder_id, folder_texts)
         last = matter_last_active.get(folder_id)
-        work_blocks = _compute_work_blocks(matter_event_epochs[folder_id])
+        wb_count = _compute_work_blocks(matter_event_epochs[folder_id])
+        details = _compute_matter_details(
+            matter_id=folder_id,
+            per_matter_intervals=per_matter_intervals.get(folder_id, []),
+            views=matter_views.get(folder_id, []),
+            actions=matter_actions.get(folder_id, []),
+            all_matter_daily_sec=all_matter_daily_sec,
+            matter_names=matter_names,
+            session_event_id_by_uuid=session_event_id_by_uuid,
+        )
         matters.append({
             "folder_id": folder_id,
-            "name": name,
+            "name": matter_names[folder_id],
             "hours": round(secs / 3600, 2),
             "seconds": round(secs, 1),
             "session_count": len(matter_session_ids[folder_id]),
-            "work_blocks": work_blocks,
+            "work_blocks": wb_count,
             "last_active": last.isoformat() if last else None,
             "top_labels": [t for t, _ in folder_texts.get(folder_id, Counter()).most_common(5)],
+            "details": details,
         })
     matters.sort(key=lambda m: -m["hours"])
 
@@ -443,7 +928,15 @@ def attribute_time(events: list[dict]) -> dict:
         "idle_stripped_hours":      round((deduped_fg_sec - active_fg_sec) / 3600, 2),
         "multi_tab_overlap_hours":  round((raw_fg_seconds - deduped_fg_sec) / 3600, 2),
     }
-    return {"matters": matters, "daily": daily, "summary": summary}
+    # Overhead chunks — list of unattributed-time periods with replay links
+    overhead_chunks = _group_overhead_chunks(overhead_interval_list, matter_names)
+
+    return {
+        "matters": matters,
+        "daily": daily,
+        "summary": summary,
+        "overhead_chunks": overhead_chunks,
+    }
 
 
 # Human-readable display name + "starts on" note for users who haven't appeared yet.

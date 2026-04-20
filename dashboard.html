@@ -304,6 +304,211 @@
     body.no-data .grid,
     body.no-data #mattersCard { display: none; }
     body.no-data #emptyState { display: block; }
+
+    /* ==== Matter detail view ==== */
+    body.detail #listView { display: none; }
+    body:not(.detail) #detailView { display: none; }
+    tbody tr.clickable { cursor: pointer; }
+    tbody tr.clickable:hover td:first-child { color: var(--accent); font-weight: 600; }
+
+    .detail-header {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .back-link {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-family: var(--font-body);
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 120ms ease;
+    }
+    .back-link:hover { background: var(--panel-2); }
+    .detail-title-block { flex: 1; }
+    .detail-title-block h1 {
+      font-family: var(--font-display);
+      font-size: 34px;
+      font-weight: 400;
+      margin: 0 0 4px 0;
+      letter-spacing: -0.01em;
+      color: var(--text);
+      line-height: 1.1;
+    }
+    .detail-title-block .id {
+      font-family: var(--font-num);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .dd-link {
+      appearance: none;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    .dd-link:hover { opacity: 0.9; }
+
+    /* Activity timeline (Gantt) */
+    .gantt { display: flex; flex-direction: column; gap: 2px; }
+    .gantt-row { display: grid; grid-template-columns: 72px 1fr; align-items: center; gap: 12px; font-size: 11px; }
+    .gantt-row .day { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .gantt-track {
+      position: relative;
+      height: 22px;
+      background: var(--panel-2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .gantt-hour-marks {
+      position: absolute; inset: 0;
+      background-image: linear-gradient(to right, transparent 0, transparent calc(100%/24 - 1px), var(--border) calc(100%/24 - 1px), var(--border) calc(100%/24));
+      background-size: calc(100%/24) 100%;
+      opacity: 0.55;
+      pointer-events: none;
+    }
+    .gantt-block {
+      position: absolute;
+      top: 3px; bottom: 3px;
+      background: var(--accent);
+      border-radius: 3px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15);
+      min-width: 3px;
+    }
+    .gantt-header {
+      display: grid; grid-template-columns: 72px 1fr; gap: 12px;
+      font-size: 10px; color: var(--muted); margin-bottom: 6px;
+      letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .gantt-header .ruler {
+      position: relative; height: 14px;
+    }
+    .gantt-header .ruler span {
+      position: absolute; top: 0;
+      transform: translateX(-50%);
+    }
+
+    /* Detail grids */
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+
+    .detail-list { margin: 0; padding: 0; list-style: none; }
+    .detail-list li {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 60px 1fr auto;
+      gap: 12px;
+      align-items: start;
+    }
+    .detail-list li:last-child { border-bottom: none; }
+    .detail-list .lead { font-family: var(--font-display); font-size: 18px; color: var(--text); font-variant-numeric: tabular-nums; }
+    .detail-list .primary { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+    .detail-list .meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .detail-list .trailing { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+    /* Heatmap */
+    .heatmap {
+      display: grid;
+      grid-template-columns: 40px repeat(24, 1fr);
+      gap: 2px;
+      font-size: 10px;
+    }
+    .heatmap .day-label { color: var(--muted); padding-right: 4px; display: flex; align-items: center; }
+    .heatmap .hour-header { color: var(--muted); text-align: center; }
+    .heatmap .cell {
+      aspect-ratio: 1 / 1;
+      background: var(--panel-2);
+      border-radius: 2px;
+    }
+    .heatmap .cell[data-intensity="0"]  { background: var(--panel-2); }
+    .heatmap .cell[data-intensity="1"]  { background: rgba(238, 122, 45, 0.18); }
+    .heatmap .cell[data-intensity="2"]  { background: rgba(238, 122, 45, 0.36); }
+    .heatmap .cell[data-intensity="3"]  { background: rgba(238, 122, 45, 0.55); }
+    .heatmap .cell[data-intensity="4"]  { background: rgba(238, 122, 45, 0.75); }
+    .heatmap .cell[data-intensity="5"]  { background: rgba(238, 122, 45, 0.95); }
+
+    /* Sessions list */
+    .replay-list { margin: 0; padding: 0; list-style: none; }
+    .replay-list li {
+      display: grid;
+      grid-template-columns: 72px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .replay-list li:last-child { border-bottom: none; }
+    .replay-list .when { font-size: 12px; color: var(--text); }
+    .replay-list .sid  { font-family: var(--font-num); font-size: 11px; color: var(--muted); }
+    .replay-btn {
+      background: var(--accent);
+      color: var(--ink-on-accent);
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-family: var(--font-body);
+      font-weight: 500;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .replay-btn:hover { opacity: 0.92; }
+
+    /* Action mix bars */
+    .action-mix { margin: 0; padding: 0; list-style: none; }
+    .action-mix li {
+      display: grid;
+      grid-template-columns: 1fr 52px;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+    }
+    .action-mix .row-label { font-size: 13px; }
+    .action-mix .row-count { font-family: var(--font-num); font-size: 12px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .action-mix .row-bar {
+      grid-column: 1 / -1;
+      height: 4px;
+      background: var(--panel-2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .action-mix .row-bar > div { height: 100%; background: var(--accent); border-radius: 2px; }
+
+    /* Co-touched simple list */
+    .co-list { margin: 0; padding: 0; list-style: none; }
+    .co-list li {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .co-list li:last-child { border-bottom: none; }
+    .co-list .h { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -332,6 +537,8 @@
     <p id="emptyMessage">This user has no Alaro activity in the selected window.</p>
     <div id="emptyStartBadge" class="start-badge" hidden></div>
   </section>
+
+  <main id="listView">
 
   <section class="stats" id="stats"></section>
 
@@ -364,6 +571,64 @@
       <tbody></tbody>
     </table>
   </div>
+
+  <div class="card" id="overheadCard" style="margin-top: 20px;">
+    <h2>Unattributed time <span class="hint">chunks I couldn't tie to a matter — watch the replay to verify</span></h2>
+    <ul class="replay-list" id="overheadList"></ul>
+  </div>
+
+  </main> <!-- /listView -->
+
+  <main id="detailView">
+    <div class="detail-header">
+      <button class="back-link" id="backBtn" type="button">← All matters</button>
+      <div class="detail-title-block">
+        <h1 id="detailName">—</h1>
+        <div class="id" id="detailId">—</div>
+      </div>
+      <a class="dd-link" id="detailDdLink" target="_blank" rel="noopener">Datadog ↗</a>
+    </div>
+
+    <section class="stats" id="detailStats"></section>
+
+    <div class="card">
+      <h2>Activity timeline <span class="hint">by day, time-of-day (UTC)</span></h2>
+      <div id="gantt"></div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="card">
+        <h2>Documents <span class="hint">touched in this matter</span></h2>
+        <ul class="detail-list" id="docsList"></ul>
+      </div>
+      <div class="card">
+        <h2>AI chats <span class="hint">conversations in this matter</span></h2>
+        <ul class="detail-list" id="chatsList"></ul>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="card">
+        <h2>Action mix <span class="hint">clicks by category</span></h2>
+        <ul class="action-mix" id="actionMixList"></ul>
+      </div>
+      <div class="card">
+        <h2>Activity heatmap <span class="hint">minutes · day × hour UTC</span></h2>
+        <div class="heatmap" id="heatmapGrid"></div>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="card">
+        <h2>Also worked on same days <span class="hint">context-switching</span></h2>
+        <ul class="co-list" id="coList"></ul>
+      </div>
+      <div class="card">
+        <h2>Sessions <span class="hint">click to watch replay in Datadog</span></h2>
+        <ul class="replay-list" id="replayList"></ul>
+      </div>
+    </div>
+  </main>
 
   <footer id="footer"></footer>
 </div>
@@ -557,7 +822,7 @@ function renderTable(w) {
     const share = m.hours / totalMatter;
     const pctW = Math.min(100, share * 100);
     return `
-      <tr>
+      <tr class="clickable" data-folder="${m.folder_id}">
         <td class="num">${i + 1}</td>
         <td class="name">${m.name}</td>
         <td class="id">${m.folder_id}</td>
@@ -572,6 +837,222 @@ function renderTable(w) {
         <td>${m.last_active ? fmt.datetime(m.last_active) : "—"}</td>
       </tr>`;
   }).join("");
+  tbody.querySelectorAll("tr.clickable").forEach(tr => {
+    tr.addEventListener("click", () => {
+      window.location.hash = `#/matter/${tr.dataset.folder}`;
+    });
+  });
+}
+
+// ========== MATTER DETAIL VIEW ==========
+
+function escape(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function renderDetailStats(matter) {
+  const d = matter.details;
+  const totalClicks = (d.action_categories || []).reduce((s, a) => s + a.count, 0);
+  const lastActive = matter.last_active ? fmt.datetime(matter.last_active) : "—";
+  const stats = [
+    { label: "Hours", value: fmt.hours(matter.hours), sub: "foreground, dedup'd, active" },
+    { label: "Work blocks", value: `${matter.work_blocks || 0}`, sub: "≥15 min gap = new block" },
+    { label: "Documents", value: `${(d.documents || []).length}`, sub: "distinct docIds touched" },
+    { label: "AI chats", value: `${(d.chats || []).length}`, sub: "distinct chatIds" },
+    { label: "Clicks", value: `${totalClicks}`, sub: "across all activity types" },
+    { label: "Last active", value: lastActive, sub: "most recent event" },
+  ];
+  document.getElementById("detailStats").innerHTML = stats.map(s => `
+    <div class="stat">
+      <div class="label">${s.label}</div>
+      <div class="value">${s.value}</div>
+      <div class="sub">${s.sub}</div>
+    </div>`).join("");
+}
+
+function renderGantt(matter) {
+  const wb = matter.details.work_blocks || [];
+  const host = document.getElementById("gantt");
+  if (!wb.length) { host.innerHTML = "<div style=\"color: var(--muted); font-size: 12px;\">No work blocks in this window.</div>"; return; }
+
+  // Group blocks by day (UTC)
+  const byDay = new Map();
+  wb.forEach(b => {
+    const d = new Date(b.start);
+    const key = d.toISOString().slice(0, 10);
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key).push(b);
+  });
+  const days = [...byDay.keys()].sort();
+
+  // Header ruler with hour markers 0 / 6 / 12 / 18
+  let html = `<div class="gantt-header">
+    <div></div>
+    <div class="ruler">
+      <span style="left:0%">0</span>
+      <span style="left:25%">06</span>
+      <span style="left:50%">12</span>
+      <span style="left:75%">18</span>
+      <span style="left:100%;transform:translateX(-100%)">24</span>
+    </div>
+  </div>`;
+
+  html += `<div class="gantt">`;
+  for (const day of days) {
+    const label = new Date(day + "T00:00:00Z").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    html += `<div class="gantt-row"><div class="day">${label}</div><div class="gantt-track"><div class="gantt-hour-marks"></div>`;
+    for (const b of byDay.get(day)) {
+      const s = new Date(b.start);
+      const e = new Date(b.end);
+      const startMin = s.getUTCHours() * 60 + s.getUTCMinutes();
+      let endMin = e.getUTCHours() * 60 + e.getUTCMinutes();
+      if (e.toISOString().slice(0, 10) !== day) endMin = 24 * 60; // clamp at midnight
+      const left = (startMin / (24 * 60)) * 100;
+      const width = Math.max(0.2, ((endMin - startMin) / (24 * 60)) * 100);
+      const tip = `${new Date(b.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} – ${new Date(b.end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}  ·  ${b.active_min} min active / ${b.duration_min} min span`;
+      html += `<div class="gantt-block" style="left:${left}%;width:${width}%" title="${escape(tip)}"></div>`;
+    }
+    html += `</div></div>`;
+  }
+  html += `</div>`;
+  host.innerHTML = html;
+}
+
+function renderDocsList(matter) {
+  const docs = matter.details.documents || [];
+  const host = document.getElementById("docsList");
+  if (!docs.length) { host.innerHTML = "<li style=\"color:var(--muted)\">No documents touched in this window.</li>"; return; }
+  host.innerHTML = docs.slice(0, 15).map(d => `
+    <li>
+      <div class="lead">${d.hours.toFixed(2)}h</div>
+      <div>
+        <div class="primary" title="${escape(d.name)}">${escape(d.name)}</div>
+        <div class="meta">${d.version_count} version${d.version_count === 1 ? "" : "s"} · ${d.click_count} click${d.click_count === 1 ? "" : "s"} · doc ${d.doc_id.slice(0, 8)}</div>
+      </div>
+      <div class="trailing">${d.last_seen ? fmt.datetime(d.last_seen) : "—"}</div>
+    </li>`).join("");
+}
+
+function renderChatsList(matter) {
+  const chats = matter.details.chats || [];
+  const host = document.getElementById("chatsList");
+  if (!chats.length) { host.innerHTML = "<li style=\"color:var(--muted)\">No AI chats in this window.</li>"; return; }
+  host.innerHTML = chats.slice(0, 15).map(c => `
+    <li>
+      <div class="lead">${c.hours.toFixed(2)}h</div>
+      <div>
+        <div class="primary" title="${escape(c.first_prompt || '')}">${escape(c.first_prompt || "(no prompt text captured)")}</div>
+        <div class="meta">${c.submit_count} submit${c.submit_count === 1 ? "" : "s"} · chat ${c.chat_id.slice(0, 10)}</div>
+      </div>
+      <div class="trailing">${c.last_seen ? fmt.datetime(c.last_seen) : "—"}</div>
+    </li>`).join("");
+}
+
+function renderActionMix(matter) {
+  const cats = matter.details.action_categories || [];
+  const total = cats.reduce((s, c) => s + c.count, 0) || 1;
+  const sorted = [...cats].sort((a, b) => b.count - a.count);
+  document.getElementById("actionMixList").innerHTML = sorted.map(c => {
+    const pct = (c.count / total) * 100;
+    return `
+      <li>
+        <div class="row-label">${escape(c.label)}</div>
+        <div class="row-count">${c.count}</div>
+        <div class="row-bar"><div style="width:${pct}%"></div></div>
+      </li>`;
+  }).join("");
+}
+
+function renderHeatmap(matter) {
+  const hm = matter.details.heatmap_minutes || [];
+  const host = document.getElementById("heatmapGrid");
+  // Find max for relative intensity
+  let max = 0;
+  for (const row of hm) for (const v of row) if (v > max) max = v;
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  let html = `<div class="day-label"></div>`;
+  for (let h = 0; h < 24; h++) {
+    html += `<div class="hour-header">${h % 6 === 0 ? String(h).padStart(2, "0") : ""}</div>`;
+  }
+  for (let d = 0; d < 7; d++) {
+    html += `<div class="day-label">${days[d]}</div>`;
+    for (let h = 0; h < 24; h++) {
+      const v = (hm[d] && hm[d][h]) || 0;
+      const intensity = max ? Math.min(5, Math.ceil((v / max) * 5)) : 0;
+      const tip = `${days[d]} ${String(h).padStart(2, "0")}:00  ·  ${v.toFixed(1)} min`;
+      html += `<div class="cell" data-intensity="${intensity}" title="${escape(tip)}"></div>`;
+    }
+  }
+  host.innerHTML = html;
+}
+
+function renderCoTouched(matter) {
+  const co = matter.details.co_touched || [];
+  const host = document.getElementById("coList");
+  if (!co.length) { host.innerHTML = "<li style=\"color:var(--muted)\">No co-touched matters in this window.</li>"; return; }
+  host.innerHTML = co.map(c => `
+    <li>
+      <span><a href="#/matter/${c.folder_id}" style="color:var(--text);text-decoration:none;">${escape(c.name)}</a></span>
+      <span class="h">${c.shared_day_hours.toFixed(2)}h shared days</span>
+    </li>`).join("");
+}
+
+function renderReplayList(matter) {
+  const rs = matter.details.sessions_for_replay || [];
+  const host = document.getElementById("replayList");
+  if (!rs.length) { host.innerHTML = "<li style=\"color:var(--muted)\">No replayable sessions in this window.</li>"; return; }
+  host.innerHTML = rs.slice(0, 20).map(s => `
+    <li>
+      <div class="lead" style="font-size:16px">${s.hours_on_matter.toFixed(2)}h</div>
+      <div>
+        <div class="when">${fmt.datetime(s.start)} → ${new Date(s.end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+        <div class="sid">${s.session_id}</div>
+      </div>
+      <a class="replay-btn" href="${s.replay_url}" target="_blank" rel="noopener">Open in Datadog ↗</a>
+    </li>`).join("");
+}
+
+function renderDetail(user, windowKey, folderId) {
+  const w = user.windows[windowKey];
+  if (!w) return false;
+  const matter = (w.matters || []).find(m => m.folder_id === folderId);
+  if (!matter) return false;
+
+  document.getElementById("detailName").textContent = matter.name;
+  document.getElementById("detailId").textContent = matter.folder_id;
+  // Matter filter in RUM Explorer (Sessions view): show every session touching this folder
+  // across the current window. View URL contains the folder UUID on both path and query forms.
+  const APP_ID = "db0d76f0-bf2e-4328-a098-d711035a664c";
+  const ddQuery = `@application.id:${APP_ID} @view.url:*${matter.folder_id}*`;
+  const nowMs = Date.now();
+  // _currentWindow is set by showUser; fall back to 7 if missing
+  const windowDays = parseInt(_currentWindow || "7", 10);
+  const fromMs = nowMs - windowDays * 86400 * 1000;
+  const ddParams = new URLSearchParams({
+    query: ddQuery, from_ts: String(fromMs), to_ts: String(nowMs), live: "false"
+  });
+  document.getElementById("detailDdLink").href =
+    `https://app.datadoghq.eu/rum/sessions?${ddParams.toString()}`;
+
+  renderDetailStats(matter);
+  renderGantt(matter);
+  renderDocsList(matter);
+  renderChatsList(matter);
+  renderActionMix(matter);
+  renderHeatmap(matter);
+  renderCoTouched(matter);
+  renderReplayList(matter);
+
+  return true;
+}
+
+function currentRoute() {
+  const h = window.location.hash || "";
+  const m = h.match(/^#\/matter\/([0-9a-f-]+)/);
+  return m ? { view: "detail", folderId: m[1] } : { view: "list" };
 }
 
 function showEmptyState(user) {
@@ -604,6 +1085,40 @@ function hideEmptyState() {
   document.body.classList.remove("no-data");
 }
 
+function renderOverheadChunks(w) {
+  const chunks = w.overhead_chunks || [];
+  const host = document.getElementById("overheadList");
+  if (!chunks.length) {
+    host.innerHTML = `<li style="color:var(--muted)">No unattributed chunks in this window — everything tied to a matter or triage.</li>`;
+    return;
+  }
+  // Top 20, with a small "showing X of Y" footer
+  const shown = chunks.slice(0, 20);
+  const totalMin = chunks.reduce((s, c) => s + (c.active_min || 0), 0);
+  host.innerHTML = shown.map(c => {
+    const start = new Date(c.start);
+    const end   = new Date(c.end);
+    const when  = `${start.toLocaleDateString(undefined,{month:"short",day:"numeric"})} ${start.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})} → ${end.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`;
+    const hint  = c.referrer_folder_name
+      ? `came from <strong style="color:var(--text)">${escape(c.referrer_folder_name)}</strong>`
+      : `no referrer signal — could be genuine home-page time`;
+    const sid = (c.session_ids || [])[0] || "";
+    const replay = c.replay_url
+      ? `<a class="replay-btn" href="${c.replay_url}" target="_blank" rel="noopener">Open in Datadog ↗</a>`
+      : `<span style="font-size:11px;color:var(--muted)">no session</span>`;
+    return `
+      <li>
+        <div class="lead" style="font-size:16px">${c.active_min.toFixed(1)}m</div>
+        <div>
+          <div class="when">${when}  <span style="color:var(--muted);font-size:11px">· ${hint}</span></div>
+          <div class="sid">${sid ? sid : ""}</div>
+        </div>
+        ${replay}
+      </li>`;
+  }).join("")
+    + `<li style="justify-content:center;color:var(--muted);font-size:11px;">showing ${shown.length} of ${chunks.length} chunks · ${totalMin.toFixed(0)}m total unattributed</li>`;
+}
+
 function renderWindow(user, key) {
   const w = user.windows[key];
   if (!w) return;
@@ -616,6 +1131,7 @@ function renderWindow(user, key) {
   renderMatterChart(w);
   renderDailyChart(w);
   renderTable(w);
+  renderOverheadChunks(w);
 }
 
 function renderWindowPicker(user, current, onPick) {
@@ -651,39 +1167,64 @@ function renderUserPicker(data, current, onPick) {
   });
 }
 
+let _currentUser = null;
+let _currentWindow = null;
+
+function applyRoute() {
+  const route = currentRoute();
+  if (route.view === "detail") {
+    if (_currentUser && _currentWindow) {
+      const ok = renderDetail(_currentUser, _currentWindow, route.folderId);
+      if (ok) {
+        document.body.classList.add("detail");
+        window.scrollTo(0, 0);
+        return;
+      }
+    }
+    // Fallback: route not resolvable, go to list
+    window.location.hash = "";
+  }
+  document.body.classList.remove("detail");
+}
+
 function showUser(data, email, preferredWindow) {
   const user = data.users[email];
   if (!user) return;
+  _currentUser = user;
 
-  // Header badge
   document.getElementById("user-badge").textContent = user.display || user.name || email;
 
   if (!user.has_data) {
-    // Empty state — no charts to render, but keep window picker visible for consistency
     showEmptyState(user);
     renderWindowPicker(user, preferredWindow || user.default_window, () => {});
     document.getElementById("window-sub").textContent =
       user.starts_on ? `no data yet` : `no Alaro activity recorded`;
+    _currentWindow = null;
+    document.body.classList.remove("detail");
     return;
   }
 
   hideEmptyState();
 
-  // Pick window
   let current = preferredWindow || localStorage.getItem(WINDOW_KEY);
   if (!current || !user.windows[current]) current = user.default_window;
+  _currentWindow = current;
 
   renderWindowPicker(user, current, (k) => {
     localStorage.setItem(WINDOW_KEY, k);
+    _currentWindow = k;
     document.querySelectorAll("#windowPicker button").forEach(b => {
       const active = b.dataset.window === k;
       b.classList.toggle("active", active);
       b.setAttribute("aria-selected", String(active));
     });
     renderWindow(user, k);
+    // Re-render detail if we're on one (matter list in the window may differ)
+    applyRoute();
   });
 
   renderWindow(user, current);
+  applyRoute();
 }
 
 function main() {
@@ -710,6 +1251,12 @@ function main() {
   });
 
   showUser(data, currentUser);
+
+  // Hash-based routing
+  window.addEventListener("hashchange", applyRoute);
+  document.getElementById("backBtn").addEventListener("click", () => {
+    window.location.hash = "";
+  });
 
   document.getElementById("footer").textContent =
     "Option A prototype · zero-instrumentation · multi-tab dedup + activity filter + triage split + work-block grouping + doc-term name filter";
